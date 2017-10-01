@@ -5,57 +5,81 @@ process.env.DEBUG = 'actions-on-google:*';
 const App = require('actions-on-google').ApiAiApp;
 const functions = require('firebase-functions');
 
-// [START MyAction]
-exports.architectureHelps = functions.https.onRequest((request, response) => {
+// [START CALCULATOR ACTION]
+exports.buildMaterialCalculator = functions.https.onRequest((request, response) => {
     const app = new App({ request, response });
     console.log('Request headers: ' + JSON.stringify(request.headers));
     console.log('Request body: ' + JSON.stringify(request.body));
 
     //My Actions
     const Actions = {
-        CALCULATE_DISTANCE: 'calculate.distance'
+        CALCULATE_MATERIALS: 'know.longwall'
     };
 
     //My Parameters
     const Parameters = {
-        ARCHITECT_CATEGORY: 'architecture-category',
-        NUMBER_CATEGORY: 'number',
+        LENGTH_WALL: 'long_wall',
+        HEIGHT_WALL: 'height_wall',
+        POSITION_BRICK: 'brick_position'
+    };
+
+    //Type Operations
+    const TypeOperations = {
+        FOR_WALLS_HEADER: 'header',
+        FOR_WALLS_STRETCHER: 'stretcher'
+    };
+
+    //Constant
+    const BuildMaterialConstant = {
+        BRICK_HEADER: 75,
+        BRICK_STRETCHER: 40,
+        CONCRETE_HEADER: 0.4,
+        CONCRETE_STRETCHER: 0.2,
+        SAND_HEADER: 0.06,
+        SAND_STRETCHER: 0.02,
     };
 
     const screenOutput = app.hasSurfaceCapability(app.SurfaceCapabilities.SCREEN_OUTPUT);
 
-    // Fulfill action business logic
-    function calculateDistanceHandler(app) {
+    function calculateMaterialsForWallHandler(app) {
+       let longWall = app.getArgument(Parameters.LENGTH_WALL);
+        let heightWall = app.getArgument(Parameters.HEIGHT_WALL);
+        let brick_position = app.getArgument(Parameters.POSITION_BRICK);
 
-        let architectureCategory = app.getArgument(Parameters.ARCHITECT_CATEGORY);
-        let numberCategory = app.getArgument(Parameters.NUMBER_CATEGORY);
+        let meter2Wall = longWall * heightWall;
 
-        if (architectureCategory == 'column' || architectureCategory == 'columns') {
-
-            sendResponse({
-                title: "Columns",
-                msg: "I dont know about colums. but in another hand, what do you prefer know? Columns or beams?"
-            }, {
-                    src: "https://t4.ftcdn.net/jpg/00/82/94/69/240_F_82946972_wcTRSPuo0byFk4S3paw5RaBgtvAr5ZOr.jpg",
-                    title: "Greek Columns"
-                }, ['Columns', 'Beams']);
-
-        } else if (architectureCategory == 'beam' || architectureCategory == 'beams') {
-
-            sendResponse({
-                title: "Beams",
-                msg: "Between Beams is three sishos. Now you prefer continue with Columns or beams?"
-            }, {
-                    src: "http://www.myejen.com/decor/2014/05/Cozy-Dining-Area-Design-in-White-Cycladic-House-with-Beams.jpg",
-                    title: "Greek Beams"
-                }, ['Beams', 'Columns']);
-
+        if (brick_position == TypeOperations.FOR_WALLS_HEADER) {
+            let numberOfBricksHead = roundValue(meter2Wall * BuildMaterialConstant.BRICK_HEADER);
+            let amountOfSandHead = roundValue(meter2Wall * BuildMaterialConstant.SAND_HEADER);
+            let amountOfConcreteHead = roundValue(meter2Wall * BuildMaterialConstant.CONCRETE_HEADER);
+            let headResponse = makeResponseMaterials(numberOfBricksHead, amountOfSandHead, amountOfConcreteHead);
+            app.tell(headResponse);
+        } else if (brick_position == TypeOperations.FOR_WALLS_STRETCHER) {
+            let numberOfBricksRope = roundValue(meter2Wall * BuildMaterialConstant.BRICK_STRETCHER);
+            let amountOfSandRope = roundValue(meter2Wall * BuildMaterialConstant.SAND_STRETCHER);
+            let amountOfConcreteRope = roundValue(meter2Wall * BuildMaterialConstant.CONCRETE_STRETCHER);
+            let ropeResponse = makeResponseMaterials(numberOfBricksRope, amountOfSandRope, amountOfConcreteRope);
+            app.tell(ropeResponse);
         } else {
-            app.tell('I dont found the correct Response -->' + architectureCategory + ' --> By Tohure');
+            app.tell("Invalid Operation");
         }
     }
 
-    function sendResponse(category, img, suggestions) {
+    function roundValue(value) {
+        return Math.round(value * 100) / 100;
+    }
+
+    function makeResponseMaterials(bricks, sand, concrete) {
+
+        let response = "Perfect. You need " + bricks + " bricks. " +
+            "For the mortar you need " + sand + " cubic meters of sand. " +
+            concrete + " bags of concrete. " +
+            "Remember, this is just an estimate.";
+
+        return response;
+    }
+
+    function sendResponseEnriched(category, img, suggestions) {
         if (screenOutput) {
             app.ask(app.buildRichResponse()
                 .addSimpleResponse(category.msg)
@@ -67,7 +91,7 @@ exports.architectureHelps = functions.https.onRequest((request, response) => {
     }
 
     const actionMap = new Map();
-    actionMap.set('calculate.distance', calculateDistanceHandler);
+    actionMap.set(Actions.CALCULATE_MATERIALS, calculateMaterialsForWallHandler);
     app.handleRequest(actionMap);
 });
-// [END MyAction]
+// [END CALCULATOR ACTION]
